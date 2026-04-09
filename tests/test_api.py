@@ -4,6 +4,17 @@ import app as app_module
 
 app = app_module.app
 
+
+class _DummyModel:
+    def predict(self, _):
+        return [0]
+
+
+class _DummyModelVersion:
+    def __init__(self, version: str):
+        self.version = version
+
+
 def _metric_value(metrics_text: str, metric_name: str) -> float:
     for line in metrics_text.splitlines():
         if line.startswith(f"{metric_name} "):
@@ -54,6 +65,55 @@ def test_health_returns_degraded_when_model_missing(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "degraded"
     assert response.json()["model_loaded"] is False
+
+
+def test_info_uses_registry_alias_resolution(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
+    monkeypatch.setattr(
+        app_module.MlflowClient,
+        "get_model_version_by_alias",
+        lambda *_: _DummyModelVersion("42"),
+    )
+    with TestClient(app) as client:
+        response = client.get("/info")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["model_loaded"] is True
+    assert data["model_name"] == "iris-model"
+    assert data["model_version"] == "42"
+    assert data["model_source"].startswith("mlflow:")
+
+
+def test_info_falls_back_when_alias_resolution_fails(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
+
+    def _raise_alias_error(*_):
+        raise RuntimeError("alias lookup failed")
+
+    monkeypatch.setattr(
+        app_module.MlflowClient,
+        "get_model_version_by_alias",
+        _raise_alias_error,
+    )
+    with TestClient(app) as client:
+        ready = client.get("/ready")
+        info = client.get("/info")
+
+    assert ready.status_code == 200
+    assert info.status_code == 200
+    data = info.json()
+    assert data["model_loaded"] is True
+    assert data["model_name"] == app_module.MODEL_NAME
+    assert data["model_version"] == app_module.MODEL_VERSION
 
 
 def test_predict_success():
