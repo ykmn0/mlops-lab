@@ -22,7 +22,14 @@ def _metric_value(metrics_text: str, metric_name: str) -> float:
     raise AssertionError(f"metric {metric_name} not found")
 
 
-def test_health():
+def test_health(monkeypatch):
+    # Keep this test isolated from external MLflow state by forcing
+    # successful model load during app startup.
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
     with TestClient(app) as client:
         response = client.get("/health")
 
@@ -34,7 +41,12 @@ def test_health():
     assert "model_loaded" in data
 
 
-def test_ready():
+def test_ready(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
     with TestClient(app) as client:
         response = client.get("/ready")
 
@@ -179,8 +191,12 @@ def test_predict_internal_error_returns_500(monkeypatch):
         def predict(self, _):
             raise RuntimeError("boom")
 
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: BrokenModel(),
+    )
     with TestClient(app) as client:
-        monkeypatch.setattr(app_module, "model", BrokenModel())
         response = client.post(
             "/predict",
             json={"features": [5.1, 3.5, 1.4, 0.2]},
