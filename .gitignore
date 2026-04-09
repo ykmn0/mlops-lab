@@ -25,3 +25,8 @@ model.pkl
 
 # Logs
 *.log
+
+# MLflow local artifacts
+mlflow.db
+mlruns/
+.mlflow/

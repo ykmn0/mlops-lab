@@ -5,6 +5,9 @@ from sklearn.metrics import accuracy_score
 import joblib
 from pathlib import Path
 
+import mlflow
+import mlflow.sklearn
+
 
 def train_and_save_model(output_path: str = "model.pkl") -> float:
     X, y = load_iris(return_X_y=True)
@@ -13,14 +16,26 @@ def train_and_save_model(output_path: str = "model.pkl") -> float:
         X, y, test_size=0.2, random_state=42
     )
 
-    model = RandomForestClassifier(random_state=42)
-    model.fit(X_train, y_train)
+    mlflow.set_experiment("iris")
 
-    y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
+    with mlflow.start_run():
+        model = RandomForestClassifier(random_state=42)
+        model.fit(X_train, y_train)
+
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+
+        mlflow.log_metric("accuracy", accuracy)
+
+        mlflow.sklearn.log_model(
+            model,
+            name="model",
+            registered_model_name="iris-model",
+        )
 
     output = Path(output_path)
     joblib.dump(model, output)
+
     return accuracy
 
 
