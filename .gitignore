@@ -1,0 +1,27 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+venv/
+.venv/
+
+# Local environment files
+.env
+.env.local
+
+# Build and packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# ML artifacts
+model.pkl
+*.joblib
+
+# Logs
+*.log
