@@ -3,11 +3,11 @@ name: train-api-pipeline
 on:
   push:
     paths:
-      - "train/**"
+      - "**"
       - ".github/workflows/pipeline.yml"
   pull_request:
     paths:
-      - "train/**"
+      - "**"
       - ".github/workflows/pipeline.yml"
   workflow_dispatch:
 
@@ -23,7 +23,7 @@ jobs:
       IMAGE_LATEST: ghcr.io/${{ github.repository }}/train-api:latest
     defaults:
       run:
-        working-directory: train
+        working-directory: .
 
     steps:
       - name: Checkout
