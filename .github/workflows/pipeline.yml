@@ -39,10 +39,9 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Run train.py and verify artifact
+      - name: Run train.py
         run: |
           python train.py
-          test -f model.pkl
 
       - name: Run tests
         run: pytest -q

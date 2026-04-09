@@ -1,17 +1,25 @@
-from pathlib import Path
-
-import joblib
-
 from train import train_and_save_model
 
 
-def test_train_and_save_model_creates_artifact(tmp_path: Path):
-    model_path = tmp_path / "model.pkl"
+def test_train_and_save_model_returns_accuracy(monkeypatch):
+    class DummyModelInfo:
+        registered_model_version = "1"
 
-    accuracy = train_and_save_model(str(model_path))
+    class DummyModelVersion:
+        version = "1"
 
-    assert model_path.exists()
+    monkeypatch.setattr(
+        "train.mlflow.sklearn.log_model",
+        lambda *args, **kwargs: DummyModelInfo(),
+    )
+    monkeypatch.setattr(
+        "train.MlflowClient.set_registered_model_alias",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "train.MlflowClient.get_model_version_by_alias",
+        lambda *args, **kwargs: DummyModelVersion(),
+    )
+
+    accuracy = train_and_save_model()
     assert 0.0 <= accuracy <= 1.0
-
-    model = joblib.load(model_path)
-    assert hasattr(model, "predict")
