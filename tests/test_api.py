@@ -7,7 +7,11 @@ app = app_module.app
 
 class _DummyModel:
     def predict(self, _):
-        return [0]
+        class _DummyPrediction:
+            def tolist(self):
+                return [0]
+
+        return _DummyPrediction()
 
 
 class _DummyModelVersion:
@@ -128,7 +132,12 @@ def test_info_falls_back_when_alias_resolution_fails(monkeypatch):
     assert data["model_version"] == app_module.MODEL_VERSION
 
 
-def test_predict_success():
+def test_predict_success(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
     with TestClient(app) as client:
         before = client.get("/metrics")
         before_count = _metric_value(
@@ -152,7 +161,12 @@ def test_predict_success():
     assert after_count >= before_count + 1
 
 
-def test_predict_validation_error():
+def test_predict_validation_error(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
     with TestClient(app) as client:
         before = client.get("/metrics")
         before_count = _metric_value(
@@ -174,7 +188,12 @@ def test_predict_validation_error():
     assert after_count >= before_count + 1
 
 
-def test_metrics_prometheus_format():
+def test_metrics_prometheus_format(monkeypatch):
+    monkeypatch.setattr(
+        app_module.mlflow.pyfunc,
+        "load_model",
+        lambda _: _DummyModel(),
+    )
     with TestClient(app) as client:
         response = client.get("/metrics")
 
