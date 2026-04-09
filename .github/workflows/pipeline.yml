@@ -50,7 +50,7 @@ jobs:
         run: |
           uvicorn app:app --host 127.0.0.1 --port 8000 &
           UVICORN_PID=$!
-          trap "kill $UVICORN_PID" EXIT
+          trap 'if [ -n "${UVICORN_PID:-}" ] && kill -0 "$UVICORN_PID" 2>/dev/null; then kill "$UVICORN_PID"; fi' EXIT
 
           READY=0
           for i in {1..20}; do
@@ -92,7 +92,7 @@ jobs:
       - name: Smoke test container
         run: |
           docker run -d --rm --name train-api-ci -p 8001:8000 train-api:${{ github.sha }}
-          trap "docker stop train-api-ci" EXIT
+          trap 'docker ps --format "{{.Names}}" | grep -q "^train-api-ci$" && docker stop train-api-ci >/dev/null || true' EXIT
 
           READY=0
           for i in {1..20}; do
