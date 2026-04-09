@@ -2,12 +2,16 @@ from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+import os
 
 import mlflow
 import mlflow.sklearn
 from mlflow.tracking import MlflowClient
 
 def train_and_save_model() -> float:
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(tracking_uri)
+
     X, y = load_iris(return_X_y=True)
 
     X_train, X_test, y_train, y_test = train_test_split(

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import unquote
 
+import mlflow
 import mlflow.pyfunc
 from mlflow.tracking import MlflowClient
 from dotenv import load_dotenv
@@ -29,9 +30,12 @@ load_dotenv(BASE_DIR / ".env")
 MODEL_NAME = os.getenv("MODEL_NAME", "iris-random-forest")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
 MODEL_URI = os.getenv("MODEL_URI", "models:/iris-model@champion")
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 model = None
 model_load_error = None
