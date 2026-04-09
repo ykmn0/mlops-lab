@@ -49,13 +49,21 @@ curl -s -X POST "http://127.0.0.1:8000/predict" \
 
 - `MODEL_NAME`
 - `MODEL_VERSION`
+- `MODEL_URI` (MLflow model URI, по умолчанию `models:/iris-model@champion`)
 
 Пример:
 
 ```env
 MODEL_NAME=iris-random-forest
 MODEL_VERSION=v1
+MODEL_URI=models:/iris-model@champion
 ```
+
+Поведение загрузки модели:
+
+- сначала API пытается загрузить модель из MLflow по `MODEL_URI`
+- если загрузка из MLflow не удалась, используется fallback на локальный `model.pkl`
+- текущий источник модели можно посмотреть в `GET /info` (`model_source`)
 
 ## Как тестировать
 
@@ -75,6 +83,24 @@ python3 -m pytest -q
   - валидный и невалидный `/predict`
   - `500` и `503` ветки ошибок
   - формат и рост метрик в `/metrics`
+
+## Local MLflow usage
+
+Запусти обучение и открой UI:
+
+```bash
+cd train
+python3 train.py
+mlflow ui
+```
+
+Дальше открой `http://127.0.0.1:5000` и проверь:
+
+- experiment `iris`
+- run с метрикой `accuracy`
+- модель `iris-model` в Model Registry
+
+Локальные артефакты MLflow (`mlflow.db`, `mlruns/`) исключены из git через `.gitignore`.
 
 ## Как собрать Docker
 

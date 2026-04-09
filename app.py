@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import joblib
+import mlflow.pyfunc
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import HTTPException
@@ -25,12 +26,14 @@ load_dotenv(BASE_DIR / ".env")
 MODEL_PATH = BASE_DIR / "model.pkl"
 MODEL_NAME = os.getenv("MODEL_NAME", "iris-random-forest")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
+MODEL_URI = os.getenv("MODEL_URI", "models:/iris-model@champion")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 model = None
 model_load_error = None
+model_source = "none"
 
 REQUESTS_TOTAL = Counter("iris_requests_total", "Total prediction requests.")
 PREDICTION_ERRORS_TOTAL = Counter(
@@ -58,21 +61,32 @@ MODEL_INFO = Gauge(
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global model, model_load_error
+    global model, model_load_error, model_source
     try:
-        model = joblib.load(MODEL_PATH)
+        model = mlflow.pyfunc.load_model(MODEL_URI)
+        model_source = f"mlflow:{MODEL_URI}"
         model_load_error = None
-    except Exception as error:
-        model = None
-        model_load_error = str(error)
-        logger.exception("failed to load model from %s", MODEL_PATH)
+    except Exception as mlflow_error:
+        logger.warning("failed to load model from MLflow uri=%s", MODEL_URI)
+        logger.debug("mlflow load error: %s", mlflow_error)
+        try:
+            model = joblib.load(MODEL_PATH)
+            model_source = f"local:{MODEL_PATH.name}"
+            model_load_error = None
+        except Exception as local_error:
+            model = None
+            model_source = "none"
+            model_load_error = str(local_error)
+            logger.exception("failed to load local model from %s", MODEL_PATH)
+            logger.debug("mlflow fallback error: %s", mlflow_error)
 
     MODEL_INFO.labels(model_name=MODEL_NAME, model_version=MODEL_VERSION).set(1)
     logger.info(
-        "startup model_name=%s model_version=%s model_loaded=%s",
+        "startup model_name=%s model_version=%s model_loaded=%s model_source=%s",
         MODEL_NAME,
         MODEL_VERSION,
         model is not None,
+        model_source,
     )
     yield
 
@@ -125,6 +139,7 @@ def info() -> dict[str, str | bool]:
         "model_name": MODEL_NAME,
         "model_version": MODEL_VERSION,
         "model_loaded": model is not None,
+        "model_source": model_source,
     }
 
 
