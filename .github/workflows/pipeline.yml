@@ -114,11 +114,18 @@ jobs:
 
           test "${READY:-0}" = "1"
 
-          curl -sf http://127.0.0.1:8001/health | grep -q '"status":"ok"'
-          curl -sf http://127.0.0.1:8001/metrics | grep -q "iris_requests_total"
-          curl -sf -X POST "http://127.0.0.1:8001/predict" \
+          HEALTH_BODY="$(curl -sf http://127.0.0.1:8001/health)"
+          echo "container /health => $HEALTH_BODY"
+          echo "$HEALTH_BODY" | grep -q '"status":"ok"'
+
+          METRICS_BODY="$(curl -sf http://127.0.0.1:8001/metrics)"
+          echo "$METRICS_BODY" | grep -q "iris_requests_total"
+
+          PREDICT_BODY="$(curl -sf -X POST "http://127.0.0.1:8001/predict" \
             -H "Content-Type: application/json" \
-            -d '{"features":[5.1,3.5,1.4,0.2]}' | grep -q "prediction"
+            -d '{"features":[5.1,3.5,1.4,0.2]}')"
+          echo "container /predict(valid) => $PREDICT_BODY"
+          echo "$PREDICT_BODY" | grep -q "prediction"
           INVALID_BODY="$(mktemp)"
           INVALID_CODE="$(curl -s -o "$INVALID_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:8001/predict" \
             -H "Content-Type: application/json" \
