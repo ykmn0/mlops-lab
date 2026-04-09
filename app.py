@@ -3,7 +3,6 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import joblib
 import mlflow.pyfunc
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -23,7 +22,6 @@ from pydantic import field_validator
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
-MODEL_PATH = BASE_DIR / "model.pkl"
 MODEL_NAME = os.getenv("MODEL_NAME", "iris-random-forest")
 MODEL_VERSION = os.getenv("MODEL_VERSION", "v1")
 MODEL_URI = os.getenv("MODEL_URI", "models:/iris-model@champion")
@@ -67,18 +65,10 @@ async def lifespan(_app: FastAPI):
         model_source = f"mlflow:{MODEL_URI}"
         model_load_error = None
     except Exception as mlflow_error:
-        logger.warning("failed to load model from MLflow uri=%s", MODEL_URI)
-        logger.debug("mlflow load error: %s", mlflow_error)
-        try:
-            model = joblib.load(MODEL_PATH)
-            model_source = f"local:{MODEL_PATH.name}"
-            model_load_error = None
-        except Exception as local_error:
-            model = None
-            model_source = "none"
-            model_load_error = str(local_error)
-            logger.exception("failed to load local model from %s", MODEL_PATH)
-            logger.debug("mlflow fallback error: %s", mlflow_error)
+        model = None
+        model_source = "none"
+        model_load_error = str(mlflow_error)
+        logger.exception("failed to load model from MLflow uri=%s", MODEL_URI)
 
     MODEL_INFO.labels(model_name=MODEL_NAME, model_version=MODEL_VERSION).set(1)
     logger.info(

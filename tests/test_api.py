@@ -35,7 +35,7 @@ def test_ready_returns_503_when_model_missing(monkeypatch):
     def _raise_load_error(_):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(app_module.joblib, "load", _raise_load_error)
+    monkeypatch.setattr(app_module.mlflow.pyfunc, "load_model", _raise_load_error)
     with TestClient(app) as client:
         response = client.get("/ready")
 
@@ -120,7 +120,7 @@ def test_predict_returns_503_when_model_missing(monkeypatch):
     def _raise_load_error(_):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(app_module.joblib, "load", _raise_load_error)
+    monkeypatch.setattr(app_module.mlflow.pyfunc, "load_model", _raise_load_error)
     with TestClient(app) as client:
         response = client.post(
             "/predict",
