@@ -2,8 +2,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import unquote
 
 import mlflow.pyfunc
+from mlflow.tracking import MlflowClient
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi import HTTPException
@@ -33,6 +35,8 @@ logger = logging.getLogger(__name__)
 model = None
 model_load_error = None
 model_source = "none"
+loaded_model_name = MODEL_NAME
+loaded_model_version = MODEL_VERSION
 
 REQUESTS_TOTAL = Counter("iris_requests_total", "Total prediction requests.")
 PREDICTION_ERRORS_TOTAL = Counter(
@@ -58,24 +62,47 @@ MODEL_INFO = Gauge(
 )
 
 
+def _resolve_registry_metadata(model_uri: str) -> tuple[str, str]:
+    """Resolve model name/version from models:/ URI when possible."""
+    if not model_uri.startswith("models:/"):
+        return MODEL_NAME, MODEL_VERSION
+
+    target = unquote(model_uri.removeprefix("models:/"))
+    if "@" in target:
+        model_name, alias = target.split("@", maxsplit=1)
+        version = MlflowClient().get_model_version_by_alias(model_name, alias).version
+        return model_name, str(version)
+    if "/" in target:
+        model_name, version = target.split("/", maxsplit=1)
+        return model_name, version
+
+    return target, MODEL_VERSION
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    global model, model_load_error, model_source
+    global model, model_load_error, model_source, loaded_model_name, loaded_model_version
     try:
         model = mlflow.pyfunc.load_model(MODEL_URI)
         model_source = f"mlflow:{MODEL_URI}"
         model_load_error = None
+        loaded_model_name, loaded_model_version = _resolve_registry_metadata(MODEL_URI)
     except Exception as mlflow_error:
         model = None
         model_source = "none"
         model_load_error = str(mlflow_error)
+        loaded_model_name = MODEL_NAME
+        loaded_model_version = MODEL_VERSION
         logger.exception("failed to load model from MLflow uri=%s", MODEL_URI)
 
-    MODEL_INFO.labels(model_name=MODEL_NAME, model_version=MODEL_VERSION).set(1)
+    MODEL_INFO.labels(
+        model_name=loaded_model_name,
+        model_version=loaded_model_version,
+    ).set(1)
     logger.info(
         "startup model_name=%s model_version=%s model_loaded=%s model_source=%s",
-        MODEL_NAME,
-        MODEL_VERSION,
+        loaded_model_name,
+        loaded_model_version,
         model is not None,
         model_source,
     )
@@ -109,11 +136,12 @@ class PredictResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
+    is_loaded = model is not None
     return HealthResponse(
-        status="ok",
-        model_name=MODEL_NAME,
-        model_version=MODEL_VERSION,
-        model_loaded=model is not None,
+        status="ok" if is_loaded else "degraded",
+        model_name=loaded_model_name,
+        model_version=loaded_model_version,
+        model_loaded=is_loaded,
     )
 
 
@@ -127,8 +155,8 @@ def ready() -> dict[str, str]:
 @app.get("/info")
 def info() -> dict[str, str | bool]:
     return {
-        "model_name": MODEL_NAME,
-        "model_version": MODEL_VERSION,
+        "model_name": loaded_model_name,
+        "model_version": loaded_model_version,
         "model_loaded": model is not None,
         "model_source": model_source,
     }

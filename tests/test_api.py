@@ -43,6 +43,19 @@ def test_ready_returns_503_when_model_missing(monkeypatch):
     assert response.json()["detail"] == "model is not loaded"
 
 
+def test_health_returns_degraded_when_model_missing(monkeypatch):
+    def _raise_load_error(_):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(app_module.mlflow.pyfunc, "load_model", _raise_load_error)
+    with TestClient(app) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
+    assert response.json()["model_loaded"] is False
+
+
 def test_predict_success():
     with TestClient(app) as client:
         before = client.get("/metrics")
