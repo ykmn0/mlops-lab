@@ -6,9 +6,9 @@
 
 - `train.py` — обучение модели и сохранение артефакта `model.pkl`
 - `app.py` — API с эндпоинтами:
-  - `GET /health` — liveness
+  - `GET /health` — liveness (`ok` когда модель загружена, `degraded` иначе)
   - `GET /ready` — readiness (модель загружена)
-  - `GET /info` — версия и статус модели
+  - `GET /info` — источник, версия и статус загруженной модели
   - `GET /metrics` — Prometheus metrics
   - `POST /predict` — предсказание по 4 признакам
 
@@ -63,6 +63,7 @@ MODEL_URI=models:/iris-model@champion
 
 - сначала API пытается загрузить модель из MLflow по `MODEL_URI`
 - если загрузка из MLflow не удалась, модель считается недоступной (`/ready` вернёт `503`)
+- `model_name`/`model_version` в `/health` и `/info` отражают реально загруженную версию из Registry
 - текущий источник модели можно посмотреть в `GET /info` (`model_source`)
 
 ## Как тестировать
