@@ -70,9 +70,12 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"features":[5.1,3.5,1.4,0.2]}' | grep -q "prediction"
 
-          curl -sf -X POST "http://127.0.0.1:8000/predict" \
+          INVALID_BODY="$(mktemp)"
+          INVALID_CODE="$(curl -s -o "$INVALID_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:8000/predict" \
             -H "Content-Type: application/json" \
-            -d '{"features":[5.1,3.5,1.4]}' | grep -q "expected 4 features"
+            -d '{"features":[5.1,3.5,1.4]}')"
+          test "$INVALID_CODE" = "422"
+          grep -q "expected 4 features" "$INVALID_BODY"
 
       - name: Docker build
         run: |
@@ -110,9 +113,12 @@ jobs:
           curl -sf -X POST "http://127.0.0.1:8001/predict" \
             -H "Content-Type: application/json" \
             -d '{"features":[5.1,3.5,1.4,0.2]}' | grep -q "prediction"
-          curl -sf -X POST "http://127.0.0.1:8001/predict" \
+          INVALID_BODY="$(mktemp)"
+          INVALID_CODE="$(curl -s -o "$INVALID_BODY" -w "%{http_code}" -X POST "http://127.0.0.1:8001/predict" \
             -H "Content-Type: application/json" \
-            -d '{"features":[5.1,3.5,1.4]}' | grep -q "expected 4 features"
+            -d '{"features":[5.1,3.5,1.4]}')"
+          test "$INVALID_CODE" = "422"
+          grep -q "expected 4 features" "$INVALID_BODY"
 
       - name: Login to GHCR
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
