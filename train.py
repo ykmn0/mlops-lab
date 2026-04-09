@@ -7,7 +7,7 @@ from pathlib import Path
 
 import mlflow
 import mlflow.sklearn
-
+from mlflow.tracking import MlflowClient
 
 def train_and_save_model(output_path: str = "model.pkl") -> float:
     X, y = load_iris(return_X_y=True)
@@ -18,7 +18,7 @@ def train_and_save_model(output_path: str = "model.pkl") -> float:
 
     mlflow.set_experiment("iris")
 
-    with mlflow.start_run():
+    with mlflow.start_run() as run:
         model = RandomForestClassifier(random_state=42)
         model.fit(X_train, y_train)
 
@@ -27,11 +27,29 @@ def train_and_save_model(output_path: str = "model.pkl") -> float:
 
         mlflow.log_metric("accuracy", accuracy)
 
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             model,
             name="model",
             registered_model_name="iris-model",
         )
+        client = MlflowClient()
+        registered_version = getattr(model_info, "registered_model_version", None)
+        if not registered_version:
+            raise RuntimeError(
+                f"failed to resolve registered model version for run_id={run.info.run_id}"
+            )
+        client.set_registered_model_alias(
+            name="iris-model",
+            alias="champion",
+            version=registered_version,
+        )
+        alias = client.get_model_version_by_alias(
+            name="iris-model",
+            alias="champion",
+        )
+        print(f"champion alias -> iris-model version {alias.version}")
+
+        
 
     output = Path(output_path)
     joblib.dump(model, output)
