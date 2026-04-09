@@ -106,6 +106,12 @@ jobs:
             sleep 1
           done
 
+          if [ "${READY:-0}" != "1" ]; then
+            docker ps -a
+            docker logs train-api-ci || true
+            exit 1
+          fi
+
           test "${READY:-0}" = "1"
 
           curl -sf http://127.0.0.1:8001/health | grep -q '"status":"ok"'
