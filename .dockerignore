@@ -1,0 +1,11 @@
+.git
+.github
+venv
+__pycache__
+tests/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+scripts
+mlflow.db
+mlruns
