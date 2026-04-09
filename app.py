@@ -2,6 +2,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 from urllib.parse import unquote
 
 import mlflow.pyfunc
@@ -86,7 +87,13 @@ async def lifespan(_app: FastAPI):
         model = mlflow.pyfunc.load_model(MODEL_URI)
         model_source = f"mlflow:{MODEL_URI}"
         model_load_error = None
-        loaded_model_name, loaded_model_version = _resolve_registry_metadata(MODEL_URI)
+        try:
+            loaded_model_name, loaded_model_version = _resolve_registry_metadata(MODEL_URI)
+        except Exception:
+            # Metadata resolution issues should not fail startup if model loaded.
+            loaded_model_name = MODEL_NAME
+            loaded_model_version = MODEL_VERSION
+            logger.exception("failed to resolve model metadata from uri=%s", MODEL_URI)
     except Exception as mlflow_error:
         model = None
         model_source = "none"
@@ -95,6 +102,7 @@ async def lifespan(_app: FastAPI):
         loaded_model_version = MODEL_VERSION
         logger.exception("failed to load model from MLflow uri=%s", MODEL_URI)
 
+    MODEL_INFO.clear()
     MODEL_INFO.labels(
         model_name=loaded_model_name,
         model_version=loaded_model_version,
@@ -124,7 +132,7 @@ class IrisInput(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: str
+    status: Literal["ok", "degraded"]
     model_name: str
     model_version: str
     model_loaded: bool
