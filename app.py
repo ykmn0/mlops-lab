@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Response
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST
 from prometheus_client import Counter
@@ -145,7 +146,7 @@ async def validation_exception_handler(
     )
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors()},
+        content={"detail": jsonable_encoder(exc.errors())},
     )
 
 
